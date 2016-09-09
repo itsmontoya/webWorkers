@@ -2,19 +2,17 @@ package webWorkers
 
 import (
 	"net"
-	"strings"
 
 	"github.com/missionMeteora/toolkit/errors"
 )
-
-import "fmt"
 
 type queue chan net.Conn
 
 // Opts are the options used to configure an instance of web workers
 type Opts struct {
-	WorkerCap int `ini:"workerCap"`
-	QueueLen  int `ini:"queueLen"`
+	WorkerCap int    `ini:"workerCap"`
+	QueueLen  int    `ini:"queueLen"`
+	Address   string `ini:"address"`
 }
 
 // validate will return any errors (if any) with the set of Opts
@@ -31,71 +29,49 @@ func (o *Opts) validate() (err error) {
 	return errs.Err()
 }
 
-// newCookie will return a new Cookie with the requested length
-// mmm.. Cookies.
-func newCookie(length int) (c *Cookie) {
-	return &Cookie{
-		m: make(map[string]string, length),
+func mapASCII(in []byte) (out []byte) {
+	if isASCII(in) {
+		return in
 	}
-}
 
-// Cookie represents a cookie
-type Cookie struct {
-	m map[string]string
-}
+	out = make([]byte, 0, len(in))
 
-// parse will parse an inbound string and populate the Cookie
-func (c *Cookie) parse(in string) {
-	for _, kv := range strings.Split(in, ";") {
-		var (
-			k, v string
-			spl  = strings.Split(kv, "=")
-		)
-
-		if len(spl) < 2 {
+	for _, b := range in {
+		if !isASCIIByte(b) {
 			continue
 		}
 
-		if k = spl[0]; k == "" {
-			continue
-		}
-
-		if v = spl[1]; v == "" {
-			continue
-		}
-
-		c.m[k] = v
-	}
-
-	fmt.Println("Cookie!", c.m)
-}
-
-// clear deletes all the keys within the internal map, so the Cookie can be re-used
-func (c *Cookie) clear() {
-	for k := range c.m {
-		delete(c.m, k)
-	}
-}
-
-// Get will return the value of the cookie matching the provided key
-func (c *Cookie) Get(key string) string {
-	return c.m[key]
-}
-
-// Set will set the value of the cookie matching the provided key
-func (c *Cookie) Set(key, val string) {
-	c.m[key] = val
-}
-
-// Dup will return a copy of the Cookie, so it can be used after the HTTP request/response process has completed
-func (c *Cookie) Dup() (nc *Cookie) {
-	nc = newCookie(len(c.m))
-
-	for k, v := range c.m {
-		nc.m[k] = v
+		out = append(out, b)
 	}
 
 	return
 }
 
-type workers []*worker
+func isASCII(in []byte) bool {
+	for _, b := range in {
+		if !isASCIIByte(b) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isASCIIByte(b byte) bool {
+	return b >= 32 && b <= 127
+}
+
+func trimPrefix(bs []byte) []byte {
+	for i, b := range bs {
+		if b == '\n' || b == ' ' {
+			continue
+		}
+
+		return bs[i:]
+	}
+
+	return nil
+}
+
+// Handler is the func used for handling http requests
+type Handler func(*Response, *Request)

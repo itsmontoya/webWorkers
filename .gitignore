@@ -1,0 +1,4 @@
+webWorkers.test
+*.pprof
+benches
+*.pdf

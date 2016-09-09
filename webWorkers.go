@@ -1,7 +1,6 @@
 package webWorkers
 
 import (
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -20,6 +19,9 @@ const (
 
 	// ErrIsClosed is returned when an action is attempted on a closed instance
 	ErrIsClosed = errors.Error("cannot perform action on closed instance")
+
+	// ErrHeadersSent is returned when header modifications are attempted after the headers have already been sent
+	ErrHeadersSent = errors.Error("headers already sent")
 )
 
 const (
@@ -28,7 +30,7 @@ const (
 )
 
 // New returns a new instance of Webworkers
-func New(o Opts, fn func(w io.Writer, r io.Reader)) (ww *Webworkers, err error) {
+func New(o Opts, fn Handler) (ww *Webworkers, err error) {
 	if err = o.validate(); err != nil {
 		return
 	}
@@ -36,6 +38,8 @@ func New(o Opts, fn func(w io.Writer, r io.Reader)) (ww *Webworkers, err error) 
 	ww = &Webworkers{
 		w: make(workers, o.WorkerCap),
 		q: make(queue, o.QueueLen),
+
+		addr: o.Address,
 	}
 
 	for i := range ww.w {
@@ -47,12 +51,15 @@ func New(o Opts, fn func(w io.Writer, r io.Reader)) (ww *Webworkers, err error) 
 
 // Webworkers is the manager the web workers service
 type Webworkers struct {
+	wg sync.WaitGroup
+
 	w workers
 	q queue
 
+	// Listening address
+	addr string
 	// Closed state
 	cs int32
-	wg sync.WaitGroup
 }
 
 // isClosed will return whether or not an instance is closed
@@ -67,7 +74,7 @@ func (ww *Webworkers) Listen() {
 		err error
 	)
 
-	if lst, err = net.Listen("tcp", ":8080"); err != nil {
+	if lst, err = net.Listen("tcp", ww.addr); err != nil {
 		// handle err here
 		return
 	}
