@@ -1,3 +1,45 @@
+# webWorkers [![GoDoc](https://godoc.org/github.com/itsmontoya/webWorkers?status.svg)](https://godoc.org/github.com/itsmontoya/webWorkers) ![Status](https://img.shields.io/badge/status-alpha-red.svg)
+
+webWorkers is a library which allows you to serve simple HTTP requests.
+
+## Usage
+``` go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/itsmontoya/webWorkers"
+)
+
+func main() {
+	var (
+		ww  *webWorkers.Webworkers
+		err error
+	)
+
+	if ww, err = webWorkers.New(webWorkers.Opts{
+		WorkerCap: 1,
+		QueueLen:  128,
+	}, Handle); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("About to listen")
+	ww.Listen()
+}
+
+// Handle will handle HTTP requests
+func Handle(res *webWorkers.Response, req *webWorkers.Request) {
+	res.StatusCode(200)
+	res.ContentType("application/json")
+	res.Write([]byte(`{ "greeting" : "Hello world!" }`))
+}
+
+```
+
+## Benchmarks
 ```
 go test --bench=BenchmarkPara. --count 4 --benchtime 4s
 PASS
