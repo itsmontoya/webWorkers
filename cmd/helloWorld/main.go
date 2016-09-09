@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io"
+	"time"
 
 	"github.com/itsmontoya/webWorkers"
 )
@@ -20,12 +20,13 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Println("About to listen")
 	ww.Listen()
 }
 
 // Handle likes to handle
-func Handle(w io.Writer, r io.Reader) {
-	var buf [32]byte
-	n, _ := r.Read(buf[:])
-	fmt.Println(string(buf[:n]))
+func Handle(res *webWorkers.Response, req *webWorkers.Request) {
+	res.StatusCode(200)
+	res.ContentType("application/json")
+	res.Write([]byte(`{ "greeting" : "Hello world!" }`))
 }

@@ -142,7 +142,7 @@ func initWW(s *srv) {
 	)
 
 	opts := Opts{
-		WorkerCap: 8,
+		WorkerCap: 16,
 		QueueLen:  1024,
 		Address:   ":11110",
 	}

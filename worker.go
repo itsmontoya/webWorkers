@@ -59,13 +59,16 @@ func (w *worker) listen() {
 		req Request
 		res Response
 
-		buf [1028]byte
+		buf [1024 * 8]byte
 		n   int
 		hn  int // Header length
 		err error
 
 		brdr = bytes.NewBuffer(nil)
 	)
+
+	req.Cookies = newCookies()
+	res.Cookies = newCookies()
 
 	for c := range w.in {
 		if n, err = c.Read(buf[:]); err != nil {
@@ -83,8 +86,6 @@ func (w *worker) listen() {
 		}
 
 		res.conn = c
-		res.Cookies = newCookies()
-
 		w.fn(&res, &req)
 		c.Close()
 

@@ -40,8 +40,7 @@ func (r *Request) clean() {
 
 	r.Body = nil
 
-	r.Cookies.release()
-	r.Cookies = nil
+	r.Cookies.clean()
 }
 
 // Host will return the host
@@ -99,6 +98,33 @@ func (r *Request) ContentType() string {
 	return string(r.contentType)
 }
 
+func (r *Request) processStatus(bs []byte) (n int) {
+	var (
+		status []byte
+		spl    [][]byte
+	)
+
+	for i, b := range bs {
+		if b != '\n' {
+			status = append(status, b)
+			continue
+		}
+
+		if spl = bytes.Split(status, []byte{' '}); len(spl) < 3 {
+			// TODO: Handle error
+			return
+		}
+
+		n = i + 1
+		r.method = append(r.method, spl[0]...)
+		r.path = append(r.path, spl[1]...)
+		r.httpType = append(r.httpType, spl[2]...)
+		break
+	}
+
+	return
+}
+
 func (r *Request) processHeader(bs []byte) (n int) {
 	var (
 		s   state
@@ -106,27 +132,7 @@ func (r *Request) processHeader(bs []byte) (n int) {
 		val []byte
 	)
 
-	r.Cookies = newCookies()
-
-	for i, b := range bs {
-		if b == '\n' {
-			n = i + 1
-
-			spl := bytes.Split(key, []byte{' '})
-			if len(spl) < 3 {
-				// TODO: Handle error
-				return
-			}
-
-			r.method = append(r.method, spl[0]...)
-			r.path = append(r.path, spl[1]...)
-			r.httpType = append(r.httpType, spl[2]...)
-			key = key[:0]
-			break
-		}
-
-		key = append(key, b)
-	}
+	n = r.processStatus(bs)
 
 	for i, b := range bs[n:] {
 		switch s {
@@ -163,7 +169,7 @@ func (r *Request) processHeader(bs []byte) (n int) {
 					r.contentType = append(r.contentType, val...)
 
 				case "Cookie":
-					r.Cookies.parse(string(val))
+					r.Cookies.set(val)
 				}
 
 				s = stateKey

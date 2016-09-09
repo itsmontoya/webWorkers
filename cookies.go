@@ -1,8 +1,7 @@
 package webWorkers
 
 import (
-	"strings"
-	"sync"
+	"bytes"
 	"time"
 )
 
@@ -10,70 +9,77 @@ const (
 	cookiesDefaultLen = 4
 )
 
-var cksPool = sync.Pool{
-	New: func() interface{} {
-		return &Cookies{
-			cks: make([]*Cookie, 0, cookiesDefaultLen),
-		}
-	},
-}
-
 // newCookies will return a new Cookies with the requested length
 // mmm.. Cookiess.
 func newCookies() (c *Cookies) {
-	var ok bool
-	if c, ok = cksPool.Get().(*Cookies); !ok {
-		// This should never happen
-		panic(ok)
+	return &Cookies{
+		cks: make([]*Cookie, 0, cookiesDefaultLen),
 	}
-
-	return
 }
 
 // Cookies represents of a set of cookies
 type Cookies struct {
-	cks []*Cookie
+	cb     []byte
+	parsed bool
+	cks    []*Cookie
+}
+
+// set will set the Cookies cb (cookie bytes) value
+// Note: This copies the bytes within the provided argument, but does not use it after that (safe to use "in" later in external code)
+func (c *Cookies) set(in []byte) {
+	if len(c.cb) > 0 {
+		c.cb = c.cb[:0]
+	}
+
+	c.cb = append(c.cb, in...)
 }
 
 // parse will parse an inbound string and populate the Cookies
-func (c *Cookies) parse(in string) {
-	for _, kv := range strings.Split(in, "; ") {
+func (c *Cookies) parse() {
+	if len(c.cb) == 0 {
+		return
+	}
+
+	for _, kv := range bytes.Split(c.cb, []byte{';', ' '}) {
 		var (
-			k, v string
-			spl  = strings.Split(kv, "=")
+			k, v []byte
+			spl  = bytes.Split(kv, []byte{'='})
 		)
 
 		if len(spl) < 2 {
 			continue
 		}
 
-		if k = spl[0]; k == "" {
+		if k = spl[0]; len(k) == 0 {
 			continue
 		}
 
-		if v = spl[1]; v == "" {
+		if v = spl[1]; len(v) == 0 {
 			continue
 		}
 
 		c.cks = append(c.cks, &Cookie{
-			Key: k,
-			Val: string(mapASCII([]byte(v))),
+			Key: string(k),
+			Val: string(mapASCII(v)),
 		})
 	}
-}
 
-func (c *Cookies) release() {
-	c.clean()
-	cksPool.Put(c)
+	c.parsed = true
 }
 
 // clean deletes all the keys within the internal map, so the Cookies can be re-used
 func (c *Cookies) clean() {
+	c.parsed = false
+	c.cb = c.cb[:0]
 	c.cks = c.cks[:0]
 }
 
 // Get will return the value of the cookie matching the provided key
 func (c *Cookies) Get(key string) (val string) {
+	if !c.parsed {
+		c.parse()
+	}
+
 	for _, ck := range c.cks {
 		if ck.Key != key {
 			continue

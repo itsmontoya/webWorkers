@@ -24,6 +24,7 @@ type Response struct {
 
 func (r *Response) bytes() (out []byte) {
 	now := time.Now().Format(dateFmt)
+	out = make([]byte, 0, 256)
 
 	switch r.StatusCode {
 	default:
@@ -40,6 +41,7 @@ func (r *Response) bytes() (out []byte) {
 		out = append(out, "Set-Cookie: "+ck.String()+"\n"...)
 
 	}
+
 	out = append(out, '\n')
 	return
 }
@@ -55,8 +57,7 @@ func (r *Response) clean() {
 	r.server = r.server[:0]
 	r.lastModified = r.lastModified[:0]
 
-	r.Cookies.release()
-	r.Cookies = nil
+	r.Cookies.clean()
 }
 
 func (r *Response) Write(b []byte) (err error) {
