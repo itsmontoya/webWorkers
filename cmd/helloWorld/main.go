@@ -2,26 +2,31 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/itsmontoya/webWorkers"
+)
+
+const (
+	cfgLoc = "./config.ini"
 )
 
 func main() {
 	var (
 		ww  *webWorkers.Webworkers
+		o   webWorkers.Opts
 		err error
 	)
 
-	if ww, err = webWorkers.New(webWorkers.Opts{
-		WorkerCap: 1,
-		QueueLen:  128,
-	}, Handle); err != nil {
+	if o, err = webWorkers.NewOpts(cfgLoc); err != nil {
+		panic(err)
+	}
+
+	if ww, err = webWorkers.New(o, Handle); err != nil {
 		panic(err)
 	}
 
 	fmt.Println("About to listen")
-	ww.Listen()
+	fmt.Println("Err?", ww.Listen())
 }
 
 // Handle likes to handle

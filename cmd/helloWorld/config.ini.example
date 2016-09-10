@@ -1,0 +1,8 @@
+workerCap = 16
+queueLen = 1024
+address = ":443"
+tls = true
+
+[certification]
+crt = "path/to/domain.crt"
+key = "path/to/domain.crt"
