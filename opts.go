@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/go-ini/ini"
+	"github.com/missionMeteora/toolkit/errors"
 )
 
 // NewOpts returns new options given a provided source
@@ -83,4 +84,18 @@ func (o *Opts) loadTLSPairs(srcF *ini.File) (err error) {
 	}
 
 	return
+}
+
+// validate will return any errors (if any) with the set of Opts
+func (o *Opts) validate() (err error) {
+	var errs errors.ErrorList
+	if o.WorkerCap == 0 {
+		errs.Append(ErrEmptyWorkers)
+	}
+
+	if o.QueueLen == 0 {
+		errs.Append(ErrEmptyQueue)
+	}
+
+	return errs.Err()
 }
