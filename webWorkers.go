@@ -1,6 +1,8 @@
 package webWorkers
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -22,6 +24,9 @@ const (
 
 	// ErrHeadersSent is returned when header modifications are attempted after the headers have already been sent
 	ErrHeadersSent = errors.Error("headers already sent")
+
+	// ErrEmptyCerts is returned when no certificates are available and the TLS setting is enabled
+	ErrEmptyCerts = errors.Error("number of certificates must be greater than zero if TLS is enabled")
 )
 
 const (
@@ -42,6 +47,12 @@ func New(o Opts, fn Handler) (ww *Webworkers, err error) {
 		addr: o.Address,
 	}
 
+	if o.TLS {
+		if err = ww.initTLS(o.Certs); err != nil {
+			return
+		}
+	}
+
 	for i := range ww.w {
 		ww.w[i] = newWorker(ww.q, &ww.wg, fn)
 	}
@@ -56,6 +67,8 @@ type Webworkers struct {
 	w workers
 	q queue
 
+	// TLS configuration
+	tc *tls.Config
 	// Listening address
 	addr string
 	// Closed state
@@ -67,22 +80,51 @@ func (ww *Webworkers) isClosed() bool {
 	return atomic.LoadInt32(&ww.cs) == stateClosed
 }
 
-// Listen will begin the listening loop
-func (ww *Webworkers) Listen() {
-	var (
-		lst net.Listener
-		err error
-	)
+func (ww *Webworkers) initTLS(tps []TLSPair) (err error) {
+	var crt tls.Certificate
+	ww.tc = &tls.Config{
+		InsecureSkipVerify: false,
+		RootCAs:            x509.NewCertPool(),
+		Certificates:       make([]tls.Certificate, 0, 2),
+	}
 
-	if lst, err = net.Listen("tcp", ww.addr); err != nil {
-		// handle err here
+	for _, tp := range tps {
+		if crt, err = tls.LoadX509KeyPair(tp.CRT, tp.Key); err != nil {
+			log.Println("Error loading default TLS pair:", err)
+			continue
+		}
+
+		ww.tc.Certificates = append(ww.tc.Certificates, crt)
+	}
+
+	if len(ww.tc.Certificates) == 0 {
+		return ErrEmptyCerts
+	}
+
+	ww.tc.BuildNameToCertificate()
+	return
+}
+
+func (ww *Webworkers) newListener() (lst net.Listener, err error) {
+	if ww.tc == nil {
+		return net.Listen("tcp", ww.addr)
+	}
+
+	return tls.Listen("tcp", ww.addr, ww.tc)
+}
+
+// Listen will begin the listening loop
+func (ww *Webworkers) Listen() (err error) {
+	var lst net.Listener
+	if lst, err = ww.newListener(); err != nil {
+		// TODO: Handle error here
 		return
 	}
 
 	for {
 		var c net.Conn
 		if c, err = lst.Accept(); err != nil {
-			log.Println("Error?", err)
+			// TODO: Handle error here
 			goto ITERATIONEND
 		}
 
@@ -95,6 +137,7 @@ func (ww *Webworkers) Listen() {
 	}
 
 	lst.Close()
+	return
 }
 
 // Close will close an instance of web workers

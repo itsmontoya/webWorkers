@@ -8,13 +8,6 @@ import (
 
 type queue chan net.Conn
 
-// Opts are the options used to configure an instance of web workers
-type Opts struct {
-	WorkerCap int    `ini:"workerCap"`
-	QueueLen  int    `ini:"queueLen"`
-	Address   string `ini:"address"`
-}
-
 // validate will return any errors (if any) with the set of Opts
 func (o *Opts) validate() (err error) {
 	var errs errors.ErrorList
@@ -75,3 +68,9 @@ func trimPrefix(bs []byte) []byte {
 
 // Handler is the func used for handling http requests
 type Handler func(*Response, *Request)
+
+// TLSPair is a crt/key pair for TLS
+type TLSPair struct {
+	CRT string
+	Key string
+}

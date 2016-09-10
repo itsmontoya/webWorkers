@@ -71,7 +71,7 @@ func (w *worker) listen() {
 	res.Cookies = newCookies()
 
 	for c := range w.in {
-		if n, err = c.Read(buf[:]); err != nil {
+		if n, err = c.Read(buf[:]); err != nil && err != io.EOF {
 			log.Println("Error?!", err)
 			continue
 		}
