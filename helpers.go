@@ -1,45 +1,42 @@
 package webWorkers
 
-import (
-	"net"
+import "net"
 
-	"github.com/missionMeteora/toolkit/errors"
-)
-
+// queue is a queue of net.Conn's
 type queue chan net.Conn
 
-// validate will return any errors (if any) with the set of Opts
-func (o *Opts) validate() (err error) {
-	var errs errors.ErrorList
-	if o.WorkerCap == 0 {
-		errs.Append(ErrEmptyWorkers)
-	}
+// Handler is the func used for handling http requests
+type Handler func(*Response, *Request)
 
-	if o.QueueLen == 0 {
-		errs.Append(ErrEmptyQueue)
-	}
-
-	return errs.Err()
+// TLSPair is a crt/key pair for TLS
+type TLSPair struct {
+	CRT string
+	Key string
 }
 
+// mapASCII will return an ASCII-friendly version of a provided byteslice
 func mapASCII(in []byte) (out []byte) {
 	if isASCII(in) {
+		// Provided byteslice is valid ASCII, return early
 		return in
 	}
 
+	// Set out with a max capacity as the length of our inbound byteslice
 	out = make([]byte, 0, len(in))
-
 	for _, b := range in {
 		if !isASCIIByte(b) {
+			// Byte is not valid ASCII, continue
 			continue
 		}
 
+		// Byte is valid ASCII, append it to the outbound byteslice
 		out = append(out, b)
 	}
 
 	return
 }
 
+// isASCII will return if a provided byteslice is valid ASCII
 func isASCII(in []byte) bool {
 	for _, b := range in {
 		if !isASCIIByte(b) {
@@ -50,27 +47,22 @@ func isASCII(in []byte) bool {
 	return true
 }
 
+// isASCIIByte will return if a provided byte is valid ASCII
 func isASCIIByte(b byte) bool {
 	return b >= 32 && b <= 127
 }
 
+// trimPrefix will remove all spaces and newlines preceeding characters within a provided byteslice
 func trimPrefix(bs []byte) []byte {
 	for i, b := range bs {
 		if b == '\n' || b == ' ' {
+			// Byte is either a newline or a space, continue
 			continue
 		}
 
+		// Byte is a non-whitespace character, return byteslice starting at current index
 		return bs[i:]
 	}
 
 	return nil
-}
-
-// Handler is the func used for handling http requests
-type Handler func(*Response, *Request)
-
-// TLSPair is a crt/key pair for TLS
-type TLSPair struct {
-	CRT string
-	Key string
 }
