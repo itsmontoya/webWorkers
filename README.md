@@ -20,8 +20,9 @@ func main() {
 	)
 
 	if ww, err = webWorkers.New(webWorkers.Opts{
-		WorkerCap: 1,
+		WorkerCap: 4,
 		QueueLen:  128,
+		Address: ":8080",
 	}, Handle); err != nil {
 		panic(err)
 	}
