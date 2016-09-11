@@ -98,7 +98,7 @@ func (r *Request) ContentType() string {
 	return string(r.contentType)
 }
 
-func (r *Request) processStatus(bs []byte) (n int) {
+func (r *Request) processStatus(bs []byte) (n int, err error) {
 	var (
 		status []byte
 		spl    [][]byte
@@ -111,7 +111,7 @@ func (r *Request) processStatus(bs []byte) (n int) {
 		}
 
 		if spl = bytes.Split(status, []byte{' '}); len(spl) < 3 {
-			// TODO: Handle error
+			err = ErrInvalidHeaderStatus
 			return
 		}
 
@@ -125,14 +125,16 @@ func (r *Request) processStatus(bs []byte) (n int) {
 	return
 }
 
-func (r *Request) processHeader(bs []byte) (n int) {
+func (r *Request) processHeader(bs []byte) (n int, err error) {
 	var (
 		s   state
 		key []byte
 		val []byte
 	)
 
-	n = r.processStatus(bs)
+	if n, err = r.processStatus(bs); err != nil {
+		return
+	}
 
 	for i, b := range bs[n:] {
 		switch s {

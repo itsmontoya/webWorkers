@@ -29,6 +29,9 @@ const (
 
 	// ErrEmptyAddress is returned when an empty address is provided
 	ErrEmptyAddress = errors.Error("address cannot be empty")
+
+	// ErrInvalidHeaderStatus is returned when an invalid header status is provided
+	ErrInvalidHeaderStatus = errors.Error("invalid header status")
 )
 
 const (
@@ -57,7 +60,7 @@ func New(o Opts, fn Handler) (ww *Webworkers, err error) {
 	}
 
 	for i := range ww.w {
-		ww.w[i] = newWorker(ww.q, &ww.wg, fn)
+		ww.w[i] = newWorker(ww.q, &ww.wg, ww.l, fn)
 	}
 
 	return

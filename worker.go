@@ -3,11 +3,10 @@ package webWorkers
 import (
 	"bytes"
 	"io"
+	"log"
 	"sync"
 	"time"
 )
-
-import "log"
 
 const (
 	dateFmt = time.RFC1123
@@ -33,10 +32,11 @@ const (
 type state uint8
 
 // newWorker returns a new worker
-func newWorker(in queue, wg *sync.WaitGroup, fn Handler) (w *worker) {
+func newWorker(in queue, wg *sync.WaitGroup, l *log.Logger, fn Handler) (w *worker) {
 	w = &worker{
 		in: in,
 		wg: wg,
+		l:  l,
 		fn: fn,
 	}
 
@@ -49,6 +49,7 @@ func newWorker(in queue, wg *sync.WaitGroup, fn Handler) (w *worker) {
 type worker struct {
 	in queue
 	wg *sync.WaitGroup
+	l  *log.Logger
 
 	fn Handler
 }
@@ -76,7 +77,11 @@ func (w *worker) listen() {
 			continue
 		}
 
-		hn = req.processHeader(buf[:n])
+		if hn, err = req.processHeader(buf[:n]); err != nil {
+			w.l.Println(err)
+			goto ITEREND
+		}
+
 		brdr.Write(buf[hn:n])
 
 		if req.contentLength > n-hn {
@@ -87,8 +92,9 @@ func (w *worker) listen() {
 
 		res.conn = c
 		w.fn(&res, &req)
-		c.Close()
 
+	ITEREND:
+		c.Close()
 		req.clean()
 		res.clean()
 		brdr.Reset()
