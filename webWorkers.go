@@ -3,14 +3,13 @@ package webWorkers
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"log"
 	"net"
 	"sync"
 	"sync/atomic"
 
 	"github.com/missionMeteora/toolkit/errors"
 )
-
-import "log"
 
 const (
 	// ErrEmptyWorkers is returned when workerCap is set to 0 (or ignored)
@@ -27,6 +26,9 @@ const (
 
 	// ErrEmptyCerts is returned when no certificates are available and the TLS setting is enabled
 	ErrEmptyCerts = errors.Error("number of certificates must be greater than zero if TLS is enabled")
+
+	// ErrEmptyAddress is returned when an empty address is provided
+	ErrEmptyAddress = errors.Error("address cannot be empty")
 )
 
 const (
@@ -43,6 +45,7 @@ func New(o Opts, fn Handler) (ww *Webworkers, err error) {
 	ww = &Webworkers{
 		w: make(workers, o.WorkerCap),
 		q: make(queue, o.QueueLen),
+		l: log.New(o.ErrorOutput, "webWorkers ("+o.Address+"): ", log.Ldate|log.Ltime),
 
 		addr: o.Address,
 	}
@@ -66,6 +69,7 @@ type Webworkers struct {
 
 	w workers
 	q queue
+	l *log.Logger
 
 	// TLS configuration
 	tc *tls.Config
@@ -90,7 +94,7 @@ func (ww *Webworkers) initTLS(tps []TLSPair) (err error) {
 
 	for _, tp := range tps {
 		if crt, err = tls.LoadX509KeyPair(tp.CRT, tp.Key); err != nil {
-			log.Println("Error loading default TLS pair:", err)
+			ww.l.Println(err)
 			continue
 		}
 
@@ -102,7 +106,7 @@ func (ww *Webworkers) initTLS(tps []TLSPair) (err error) {
 	}
 
 	ww.tc.BuildNameToCertificate()
-	return
+	return nil
 }
 
 func (ww *Webworkers) newListener() (lst net.Listener, err error) {
@@ -117,14 +121,13 @@ func (ww *Webworkers) newListener() (lst net.Listener, err error) {
 func (ww *Webworkers) Listen() (err error) {
 	var lst net.Listener
 	if lst, err = ww.newListener(); err != nil {
-		// TODO: Handle error here
 		return
 	}
 
 	for {
 		var c net.Conn
 		if c, err = lst.Accept(); err != nil {
-			// TODO: Handle error here
+			ww.l.Println(err)
 			goto ITERATIONEND
 		}
 
