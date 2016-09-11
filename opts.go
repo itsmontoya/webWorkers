@@ -1,6 +1,8 @@
 package webWorkers
 
 import (
+	"io"
+	"os"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -45,6 +47,8 @@ type Opts struct {
 	TLS bool `ini:"tls"`
 	// List of TLS certifications (Only needed if TLS is set to true)
 	Certs []TLSPair
+
+	ErrorOutput io.Writer
 }
 
 func (o *Opts) loadTLSPairs(srcF *ini.File) (err error) {
@@ -90,11 +94,23 @@ func (o *Opts) loadTLSPairs(srcF *ini.File) (err error) {
 func (o *Opts) validate() (err error) {
 	var errs errors.ErrorList
 	if o.WorkerCap == 0 {
+		// Worker capacity is set to 0, append ErrEmptyWorkers
 		errs.Append(ErrEmptyWorkers)
 	}
 
 	if o.QueueLen == 0 {
+		// Queue length is set to 0, append ErrEmptyQueue
 		errs.Append(ErrEmptyQueue)
+	}
+
+	if o.Address == "" {
+		// Address is empty, append ErrEmptyAddress
+		errs.Append(ErrEmptyAddress)
+	}
+
+	if o.ErrorOutput == nil {
+		// ErrorOutput has not been set, set it to os.Stderr
+		o.ErrorOutput = os.Stderr
 	}
 
 	return errs.Err()
