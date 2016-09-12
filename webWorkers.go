@@ -18,6 +18,9 @@ const (
 	// ErrEmptyQueue is returned when queueLen is set to 0 (or ignored)
 	ErrEmptyQueue = errors.Error("queue length must be greater than zero")
 
+	// ErrIsListening is returned when Listen() is called on an instance of webWorkers already listening
+	ErrIsListening = errors.Error("cannot listen on an instance already listening")
+
 	// ErrIsClosed is returned when an action is attempted on a closed instance
 	ErrIsClosed = errors.Error("cannot perform action on closed instance")
 
@@ -32,10 +35,14 @@ const (
 
 	// ErrInvalidHeaderStatus is returned when an invalid header status is provided
 	ErrInvalidHeaderStatus = errors.Error("invalid header status")
+
+	// ErrInvalidStatusCode is returned when an invalid status code is provided
+	ErrInvalidStatusCode = errors.Error("invalid status code")
 )
 
 const (
-	stateOpen int32 = iota
+	stateReady int32 = iota
+	stateListening
 	stateClosed
 )
 
@@ -82,6 +89,11 @@ type Webworkers struct {
 	cs int32
 }
 
+// isListening will return whether or not an instance is listening
+func (ww *Webworkers) isListening() bool {
+	return atomic.LoadInt32(&ww.cs) == stateListening
+}
+
 // isClosed will return whether or not an instance is closed
 func (ww *Webworkers) isClosed() bool {
 	return atomic.LoadInt32(&ww.cs) == stateClosed
@@ -122,6 +134,10 @@ func (ww *Webworkers) newListener() (lst net.Listener, err error) {
 
 // Listen will begin the listening loop
 func (ww *Webworkers) Listen() (err error) {
+	if !atomic.CompareAndSwapInt32(&ww.cs, stateReady, stateListening) {
+		return ErrIsListening
+	}
+
 	var lst net.Listener
 	if lst, err = ww.newListener(); err != nil {
 		return
@@ -148,11 +164,12 @@ func (ww *Webworkers) Listen() (err error) {
 
 // Close will close an instance of web workers
 func (ww *Webworkers) Close() (err error) {
-	if !atomic.CompareAndSwapInt32(&ww.cs, stateOpen, stateClosed) {
+	if atomic.SwapInt32(&ww.cs, stateClosed) == stateClosed {
+		// Instance of webWorkers is already closed, return ErrIsClosed
 		return ErrIsClosed
 	}
 
+	// Close queue channel
 	close(ww.q)
-
 	return
 }

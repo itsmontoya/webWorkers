@@ -13,7 +13,7 @@ const (
 )
 
 var (
-	statusOK = []byte("HTTP/1.1 200 OK\n")
+	httpType = []byte("HTTP/1.1")
 	server   = []byte("Server: PandaNet/0.0.1\n")
 )
 

@@ -10,14 +10,13 @@ type Response struct {
 	headersSent bool
 	conn        net.Conn
 
-	statusCode    int
+	statusCode    []byte
+	contentType   []byte
+	connection    []byte
+	date          []byte
+	server        []byte
+	lastModified  []byte
 	contentLength int
-
-	contentType  []byte
-	connection   []byte
-	date         []byte
-	server       []byte
-	lastModified []byte
 
 	Cookies *Cookies
 }
@@ -26,11 +25,9 @@ func (r *Response) bytes() (out []byte) {
 	now := time.Now().Format(dateFmt)
 	out = make([]byte, 0, 256)
 
-	switch r.StatusCode {
-	default:
-		out = append(out, statusOK...)
-	}
-
+	out = append(out, httpType...)
+	out = append(out, ' ')
+	out = append(out, r.statusCode...)
 	out = append(out, server...)
 	out = append(out, "Content-Type: "+string(r.contentType)+"\n"...)
 	out = append(out, "Connection: close\n"...)
@@ -50,12 +47,13 @@ func (r *Response) clean() {
 	r.headersSent = false
 	r.conn = nil
 
-	r.statusCode = 0
+	r.statusCode = r.statusCode[:0]
 	r.contentType = r.contentType[:0]
 	r.connection = r.connection[:0]
 	r.date = r.date[:0]
 	r.server = r.server[:0]
 	r.lastModified = r.lastModified[:0]
+	r.contentLength = 0
 
 	r.Cookies.clean()
 }
@@ -76,7 +74,16 @@ func (r *Response) StatusCode(sc int) (err error) {
 		return ErrHeadersSent
 	}
 
-	r.statusCode = sc
+	var b []byte
+	// Get the byteslice representation of the status code text
+	if b, err = getStatusBytes(sc); err != nil {
+		return
+	}
+
+	// Clear current status code
+	r.statusCode = r.statusCode[:0]
+	// Set status code bytes
+	r.statusCode = append(r.statusCode, b...)
 	return
 }
 
