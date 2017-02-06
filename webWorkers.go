@@ -54,7 +54,6 @@ func New(o Opts, fn Handler) (ww *Webworkers, err error) {
 
 	ww = &Webworkers{
 		w: make(workers, o.WorkerCap),
-		q: make(queue, o.QueueLen),
 		l: log.New(o.ErrorOutput, "webWorkers ("+o.Address+"): ", log.Ldate|log.Ltime),
 
 		addr: o.Address,
@@ -67,7 +66,7 @@ func New(o Opts, fn Handler) (ww *Webworkers, err error) {
 	}
 
 	for i := range ww.w {
-		ww.w[i] = newWorker(ww.q, &ww.wg, ww.l, fn)
+		ww.w[i] = newWorker(o.QueueLen, &ww.wg, ww.l, fn)
 	}
 
 	return
@@ -85,8 +84,27 @@ type Webworkers struct {
 	tc *tls.Config
 	// Listening address
 	addr string
+
+	// TODO: Decide if I want to pull this out into it's own "router" struct
+	// Worker mux
+	wm sync.Mutex
+	// Next worker index
+	nwi int
+
 	// Closed state
 	cs int32
+}
+
+func (ww *Webworkers) nextWorker() (w *worker) {
+	// Double you double you double you.. this needs a visual refactor. So many w's
+	ww.wm.Lock()
+	w = ww.w[ww.nwi]
+	ww.nwi++
+	// Our next worker index equals the length of our workers slice, reset to zero
+	if ww.nwi == len(ww.w) {
+		ww.nwi = 0
+	}
+	ww.wm.Unlock()
 }
 
 // isListening will return whether or not an instance is listening
@@ -150,7 +168,7 @@ func (ww *Webworkers) Listen() (err error) {
 			goto ITERATIONEND
 		}
 
-		ww.q <- c
+		ww.nextWorker().q <- c
 
 	ITERATIONEND:
 		if ww.isClosed() {

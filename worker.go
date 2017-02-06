@@ -32,9 +32,9 @@ const (
 type state uint8
 
 // newWorker returns a new worker
-func newWorker(in queue, wg *sync.WaitGroup, l *log.Logger, fn Handler) (w *worker) {
+func newWorker(queueLen int, wg *sync.WaitGroup, l *log.Logger, fn Handler) (w *worker) {
 	w = &worker{
-		in: in,
+		q:  make(queue, queueLen),
 		wg: wg,
 		l:  l,
 		fn: fn,
@@ -47,7 +47,7 @@ func newWorker(in queue, wg *sync.WaitGroup, l *log.Logger, fn Handler) (w *work
 
 // worker is an independent web worker, processes one request at a time
 type worker struct {
-	in queue
+	q  queue
 	wg *sync.WaitGroup
 	l  *log.Logger
 
@@ -71,7 +71,7 @@ func (w *worker) listen() {
 	req.Cookies = newCookies()
 	res.Cookies = newCookies()
 
-	for c := range w.in {
+	for c := range w.q {
 		if n, err = c.Read(buf[:]); err != nil && err != io.EOF {
 			log.Println("Error?!", err)
 			continue
