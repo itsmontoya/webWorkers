@@ -39,6 +39,7 @@ func (r *Response) bytes() []byte {
 	r.hbuf.Write(httpType)
 	r.hbuf.WriteByte(' ')
 	r.hbuf.Write(r.statusCode)
+	r.hbuf.WriteByte('\n')
 	r.hbuf.Write(server)
 
 	// Write content type

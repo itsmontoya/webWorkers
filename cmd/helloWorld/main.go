@@ -86,11 +86,18 @@ func (s *stdlibSrv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func initFastHTTP() {
-	fasthttp.ListenAndServe(":8082", HandleFastHTTP)
+	srv := fasthttp.Server{
+		DisableKeepalive: true,
+		Handler:          HandleFastHTTP,
+	}
+
+	srv.ListenAndServe(":8082")
+	//	fasthttp.ListenAndServe(":8082", HandleFastHTTP)
 }
 
 func HandleFastHTTP(ctx *fasthttp.RequestCtx) {
 	ctx.SetStatusCode(200)
 	ctx.SetContentType("application/json")
+	time.Sleep(time.Millisecond * 2)
 	ctx.Write([]byte(`{ "greeting" : "Hello world!" }`))
 }
