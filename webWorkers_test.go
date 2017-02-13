@@ -19,6 +19,8 @@ const (
 var (
 	jsonB = []byte(jsonStr)
 
+	testClnt = &http.Client{}
+
 	errInvalidResponse = errors.New("invalid response")
 )
 
@@ -95,7 +97,7 @@ func httpReq(loc string) (err error) {
 		buf  [len(jsonStr)]byte
 	)
 
-	if resp, err = http.Get(loc); err != nil {
+	if resp, err = testClnt.Get(loc); err != nil {
 		return
 	}
 
@@ -126,12 +128,14 @@ type srv struct{}
 func (s *srv) wwHandler(res *Response, req *Request) {
 	res.StatusCode(statusCode)
 	res.ContentType(jsonContentType)
+	time.Sleep(time.Millisecond * 2)
 	res.Write(jsonB)
 }
 
 func (s *srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", jsonContentType)
+	time.Sleep(time.Millisecond * 2)
 	w.Write(jsonB)
 }
 
@@ -142,8 +146,8 @@ func initWW(s *srv) {
 	)
 
 	opts := Opts{
-		WorkerCap: 16,
-		QueueLen:  1024,
+		WorkerCap: 1024,
+		QueueLen:  1024 * 32,
 		Address:   ":11110",
 	}
 
@@ -155,8 +159,10 @@ func initWW(s *srv) {
 }
 
 func initStdLib(s *srv) {
-	var err error
-	if err = http.ListenAndServe(":11111", s); err != nil {
+	srv := &http.Server{Addr: ":11111", Handler: s}
+	srv.SetKeepAlivesEnabled(false)
+
+	if err := srv.ListenAndServe(); err != nil {
 		panic(err)
 	}
 }

@@ -1,14 +1,26 @@
 package webWorkers
 
 import (
+	"bytes"
 	"net"
 	"time"
+)
+
+var (
+	contentTypeBytes  = []byte("Content-Type: ")
+	connectionBytes   = []byte("Connection: close\n")
+	dateBytes         = []byte("Date: ")
+	lastModifiedBytes = []byte("Last-Modified: ")
+	setCookieBytes    = []byte("Set-Cookie: ")
 )
 
 // Response is an http response
 type Response struct {
 	headersSent bool
 	conn        net.Conn
+
+	// Header buffer
+	hbuf *bytes.Buffer
 
 	statusCode    []byte
 	contentType   []byte
@@ -21,31 +33,47 @@ type Response struct {
 	Cookies *Cookies
 }
 
-func (r *Response) bytes() (out []byte) {
-	now := time.Now().Format(dateFmt)
-	out = make([]byte, 0, 256)
+func (r *Response) bytes() []byte {
+	now := []byte(time.Now().Format(dateFmt))
 
-	out = append(out, httpType...)
-	out = append(out, ' ')
-	out = append(out, r.statusCode...)
-	out = append(out, server...)
-	out = append(out, "Content-Type: "+string(r.contentType)+"\n"...)
-	out = append(out, "Connection: close\n"...)
-	out = append(out, "Date: "+now+"\n"...)
-	out = append(out, "Last-Modified: "+now+"\n"...)
+	r.hbuf.Write(httpType)
+	r.hbuf.WriteByte(' ')
+	r.hbuf.Write(r.statusCode)
+	r.hbuf.Write(server)
+
+	// Write content type
+	r.hbuf.Write(contentTypeBytes)
+	r.hbuf.Write(r.contentType)
+	r.hbuf.WriteByte('\n')
+
+	r.hbuf.Write(connectionBytes)
+
+	// Write date
+	r.hbuf.Write(dateBytes)
+	r.hbuf.Write(now)
+	r.hbuf.WriteByte('\n')
+
+	// Write last modified
+	r.hbuf.Write(lastModifiedBytes)
+	r.hbuf.Write(now)
+	r.hbuf.WriteByte('\n')
 
 	for _, ck := range r.Cookies.cks {
-		out = append(out, "Set-Cookie: "+ck.String()+"\n"...)
-
+		// Write cookie
+		r.hbuf.Write(setCookieBytes)
+		r.hbuf.Write(ck.Bytes())
+		r.hbuf.WriteByte('\n')
 	}
 
-	out = append(out, '\n')
-	return
+	r.hbuf.WriteByte('\n')
+	return r.hbuf.Bytes()
 }
 
 func (r *Response) clean() {
 	r.headersSent = false
 	r.conn = nil
+
+	r.hbuf.Reset()
 
 	r.statusCode = r.statusCode[:0]
 	r.contentType = r.contentType[:0]

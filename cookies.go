@@ -159,11 +159,6 @@ func (c *Cookies) Dup() (nc *Cookies) {
 
 type workers []*worker
 
-// String will return a string representation of our Cookies
-func (c *Cookies) String() string {
-	return string(c.Bytes())
-}
-
 // Bytes will return a byteslice representation of our Cookies
 func (c *Cookies) Bytes() (bs []byte) {
 	first := true
@@ -192,8 +187,9 @@ type Cookie struct {
 	Exp  int64
 }
 
-func (c *Cookie) String() string {
-	bs := make([]byte, 0, 64)
+// Bytes will returns the bytes representation of our cookies
+func (c *Cookie) Bytes() (bs []byte) {
+	bs = make([]byte, 0, 64)
 	bs = append(bs, c.Key...)
 	bs = append(bs, '=')
 	bs = append(bs, c.Val...)
@@ -212,5 +208,5 @@ func (c *Cookie) String() string {
 		bs = append(bs, time.Unix(c.Exp, 0).Format(time.RFC1123)...)
 	}
 
-	return string(bs)
+	return
 }

@@ -60,7 +60,7 @@ func (w *worker) listen() {
 		req Request
 		res Response
 
-		buf [1024 * 8]byte
+		buf [1024 * 32]byte
 		n   int
 		hn  int // Header length
 		err error
@@ -70,6 +70,7 @@ func (w *worker) listen() {
 
 	req.Cookies = newCookies()
 	res.Cookies = newCookies()
+	res.hbuf = p.acquireBuffer()
 
 	for c := range w.q {
 		if n, err = c.Read(buf[:]); err != nil && err != io.EOF {

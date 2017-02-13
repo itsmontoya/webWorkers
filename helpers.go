@@ -1,6 +1,9 @@
 package webWorkers
 
-import "net"
+import (
+	"net"
+	"unsafe"
+)
 
 // queue is a queue of net.Conn's
 type queue chan net.Conn
@@ -65,4 +68,8 @@ func trimPrefix(bs []byte) []byte {
 	}
 
 	return nil
+}
+
+func unsafeString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }

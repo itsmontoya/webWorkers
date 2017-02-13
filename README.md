@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/itsmontoya/webWorkers"
+	"github.com/itsmontoya/webworkers"
 )
 
 func main() {

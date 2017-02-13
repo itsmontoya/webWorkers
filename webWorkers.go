@@ -46,6 +46,8 @@ const (
 	stateClosed
 )
 
+var p = newPools()
+
 // New returns a new instance of Webworkers
 func New(o Opts, fn Handler) (ww *Webworkers, err error) {
 	if err = o.validate(); err != nil {
@@ -105,6 +107,7 @@ func (ww *Webworkers) nextWorker() (w *worker) {
 		ww.nwi = 0
 	}
 	ww.wm.Unlock()
+	return
 }
 
 // isListening will return whether or not an instance is listening

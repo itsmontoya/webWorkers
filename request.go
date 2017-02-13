@@ -100,17 +100,17 @@ func (r *Request) ContentType() string {
 
 func (r *Request) processStatus(bs []byte) (n int, err error) {
 	var (
-		status []byte
+		status = p.acquireBuffer()
 		spl    [][]byte
 	)
 
 	for i, b := range bs {
 		if b != '\n' {
-			status = append(status, b)
+			status.WriteByte(b)
 			continue
 		}
 
-		if spl = bytes.Split(status, []byte{' '}); len(spl) < 3 {
+		if spl = bytes.Split(status.Bytes(), []byte{' '}); len(spl) < 3 {
 			err = ErrInvalidHeaderStatus
 			return
 		}
@@ -122,14 +122,15 @@ func (r *Request) processStatus(bs []byte) (n int, err error) {
 		break
 	}
 
+	p.releaseBuffer(status)
 	return
 }
 
 func (r *Request) processHeader(bs []byte) (n int, err error) {
 	var (
 		s   state
-		key []byte
-		val []byte
+		key = p.acquireBuffer()
+		val = p.acquireBuffer()
 	)
 
 	if n, err = r.processStatus(bs); err != nil {
@@ -149,40 +150,41 @@ func (r *Request) processHeader(bs []byte) (n int, err error) {
 				break
 			}
 
-			key = append(key, b)
+			key.WriteByte(b)
 
 		case stateVal:
 			if b == '\n' {
-				val = trimPrefix(val)
-				switch string(key) {
+				switch key.String() {
 				case "Connection":
-					r.connection = append(r.connection, val...)
+					r.connection = append(r.connection, trimPrefix(val.Bytes())...)
 				case "User-Agent":
-					r.userAgent = append(r.userAgent, val...)
+					r.userAgent = append(r.userAgent, trimPrefix(val.Bytes())...)
 				case "Accept":
-					r.accept = append(r.accept, val...)
+					r.accept = append(r.accept, trimPrefix(val.Bytes())...)
 				case "Accept-Encoding":
-					r.acceptEncoding = append(r.acceptEncoding, val...)
+					r.acceptEncoding = append(r.acceptEncoding, trimPrefix(val.Bytes())...)
 				case "Accept-Language":
-					r.acceptLanguage = append(r.acceptLanguage, val...)
+					r.acceptLanguage = append(r.acceptLanguage, trimPrefix(val.Bytes())...)
 				case "Content-Length":
-					r.contentLength, _ = strconv.Atoi(string(val))
+					r.contentLength, _ = strconv.Atoi(string(trimPrefix(val.Bytes())))
 				case "Content-Type":
-					r.contentType = append(r.contentType, val...)
+					r.contentType = append(r.contentType, trimPrefix(val.Bytes())...)
 
 				case "Cookie":
-					r.Cookies.set(val)
+					r.Cookies.set(append(make([]byte, 0, val.Len()), val.Bytes()...))
 				}
 
 				s = stateKey
-				key = key[:0]
-				val = val[:0]
+				key.Reset()
+				val.Reset()
 				continue
 			}
 
-			val = append(val, b)
+			val.WriteByte(b)
 		}
 	}
 
+	p.releaseBuffer(key)
+	p.releaseBuffer(val)
 	return
 }

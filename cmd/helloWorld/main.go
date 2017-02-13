@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/itsmontoya/webworkers"
+	"github.com/missionMeteora/toolkit/closer"
+	"github.com/pkg/profile"
 	"github.com/valyala/fasthttp"
-	"net/http"
+	"time"
 )
 
 // cfgLoc is the location of our config ini file
@@ -13,10 +16,17 @@ import (
 const cfgLoc = "./config.ini"
 
 func main() {
+	p := profile.Start(profile.MemProfile, profile.ProfilePath("."), profile.NoShutdownHook)
+	cl := closer.New()
+
 	go initWW()
 	go initStdlib()
 	go initFastHTTP()
-	select {}
+
+	cl.Wait()
+	fmt.Println("Closing")
+	p.Stop()
+
 }
 
 func initWW() {
@@ -46,13 +56,23 @@ func Handle(res *webWorkers.Response, req *webWorkers.Request) {
 	res.StatusCode(200)
 	// Set our content type to application/json
 	res.ContentType("application/json")
+	time.Sleep(time.Millisecond * 2)
+
 	// Return a static []byteslice of a JSON object
 	res.Write([]byte(`{ "greeting" : "Hello world!" }`))
 }
 
 func initStdlib() {
-	srv := &stdlibSrv{}
-	http.ListenAndServe(":8081", srv)
+	//	srv := &stdlibSrv{}
+	//	http.ListenAndServe(":8081", srv)
+
+	s := &stdlibSrv{}
+	srv := &http.Server{Addr: ":8081", Handler: s}
+	srv.SetKeepAlivesEnabled(false)
+
+	if err := srv.ListenAndServe(); err != nil {
+		panic(err)
+	}
 }
 
 type stdlibSrv struct {
@@ -61,6 +81,7 @@ type stdlibSrv struct {
 func (s *stdlibSrv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	w.Header().Set("Content-type", "application/json")
+	time.Sleep(time.Millisecond * 2)
 	w.Write([]byte(`{ "greeting" : "Hello world!" }`))
 }
 
