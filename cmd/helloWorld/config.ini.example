@@ -1,7 +1,7 @@
-workerCap = 16
-queueLen = 1024
-address = ":443"
-tls = true
+workerCap = 512
+queueLen = 32768
+address = ":8080"
+tls = false
 
 [certification]
 crt = "path/to/domain.crt"
